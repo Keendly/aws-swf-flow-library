@@ -141,6 +141,18 @@ public class TestWorkflowClock implements WorkflowClock {
         return timer.getResult();
     }
 
+    @Override
+    public <T> boolean cancelTimer(Promise<T> timer) {
+        for (TimerInfo timerInfo : timers){
+            if (timerInfo.getResult().equals(timer)){
+                timers.remove(timerInfo);
+                timerInfo.cancel();
+                return true;
+            }
+        }
+        return false;
+    }
+
     public Long fireTimers() {
         while (true) {
             TimerInfo<?> timer = timers.peek();

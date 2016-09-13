@@ -14,13 +14,6 @@
  */
 package com.amazonaws.services.simpleworkflow.flow.worker;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.CancellationException;
-
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-
 import com.amazonaws.services.simpleworkflow.flow.StartTimerFailedException;
 import com.amazonaws.services.simpleworkflow.flow.WorkflowClock;
 import com.amazonaws.services.simpleworkflow.flow.common.FlowHelpers;
@@ -33,6 +26,12 @@ import com.amazonaws.services.simpleworkflow.model.StartTimerDecisionAttributes;
 import com.amazonaws.services.simpleworkflow.model.StartTimerFailedEventAttributes;
 import com.amazonaws.services.simpleworkflow.model.TimerCanceledEventAttributes;
 import com.amazonaws.services.simpleworkflow.model.TimerFiredEventAttributes;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.CancellationException;
 
 class WorkflowClockImpl implements WorkflowClock {
 
@@ -122,6 +121,33 @@ class WorkflowClockImpl implements WorkflowClock {
         }.setName(taskName);
         context.setResultDescription("createTimer " + taskName);
         return context.getResult();
+    }
+
+    @Override
+    public <T> boolean cancelTimer(Promise<T> timer) {
+        String timerId = extractTimerId(timer);
+        if (timerId == null){
+            log.error("Timer id not found");
+            return false;
+        }
+        scheduledTimers.remove(timerId);
+        return decisions.cancelTimer(timerId, new Runnable() {
+            @Override
+            public void run() {
+                // noop
+            }
+        });
+    }
+
+    private static String extractTimerId(Promise timer){
+        String tokens = timer.getDescription().substring("createTimer".length());
+        for (String token : tokens.trim().split(",")){
+            String[] kv = token.split("=");
+            if ("timerId".equals(kv[0].trim())){
+                return kv[1];
+            }
+        }
+        return null;
     }
 
     @SuppressWarnings({ "rawtypes", "unchecked" })

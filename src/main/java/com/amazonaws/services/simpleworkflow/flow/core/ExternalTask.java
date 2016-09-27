@@ -54,6 +54,10 @@ public abstract class ExternalTask extends AsyncContextAware {
         return context.getStackTrace().getStackTrace();
     }
 
+    public void cancel(Throwable cause){
+        context.cancel(cause);
+    }
+
     @Override
     AsyncParentContext getContext() {
         return context;

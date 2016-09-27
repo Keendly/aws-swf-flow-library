@@ -14,13 +14,6 @@
  */
 package com.amazonaws.services.simpleworkflow.flow.worker;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.CancellationException;
-
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-
 import com.amazonaws.services.simpleworkflow.flow.StartTimerFailedException;
 import com.amazonaws.services.simpleworkflow.flow.WorkflowClock;
 import com.amazonaws.services.simpleworkflow.flow.common.FlowHelpers;
@@ -33,6 +26,13 @@ import com.amazonaws.services.simpleworkflow.model.StartTimerDecisionAttributes;
 import com.amazonaws.services.simpleworkflow.model.StartTimerFailedEventAttributes;
 import com.amazonaws.services.simpleworkflow.model.TimerCanceledEventAttributes;
 import com.amazonaws.services.simpleworkflow.model.TimerFiredEventAttributes;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ConcurrentHashMap;
 
 class WorkflowClockImpl implements WorkflowClock {
 
@@ -67,6 +67,8 @@ class WorkflowClockImpl implements WorkflowClock {
     private long replayCurrentTimeMilliseconds;
 
     private boolean replaying = true;
+
+    private Map<String, ExternalTask> timerTasks = new ConcurrentHashMap<String, ExternalTask>();
 
     WorkflowClockImpl(DecisionsHelper decisions) {
         this.decisions = decisions;
@@ -109,7 +111,7 @@ class WorkflowClockImpl implements WorkflowClock {
         final String timerId = decisions.getNextId();
         timer.setTimerId(timerId);
         String taskName = "timerId=" + timer.getTimerId() + ", delaySeconds=" + timer.getStartToFireTimeout();
-        new ExternalTask() {
+        ExternalTask task = new ExternalTask() {
 
             @Override
             protected ExternalTaskCancellationHandler doExecute(ExternalTaskCompletionHandle handle) throws Throwable {
@@ -119,9 +121,32 @@ class WorkflowClockImpl implements WorkflowClock {
                 scheduledTimers.put(timerId, context);
                 return new TimerCancellationHandler(timerId);
             }
-        }.setName(taskName);
+        };
+        task.setName(taskName);
+        timerTasks.put(timerId, task);
         context.setResultDescription("createTimer " + taskName);
         return context.getResult();
+    }
+
+    @Override
+    public <T> void cancelTimer(Promise<T> timer) {
+        final String timerId = extractTimerId(timer);
+        if (timerId == null){
+            log.error("Timer id not found");
+        }
+
+        timerTasks.get(timerId).cancel(new RuntimeException("cancelled"));
+    }
+
+    private static String extractTimerId(Promise timer){
+        String tokens = timer.getDescription().substring("createTimer".length());
+        for (String token : tokens.trim().split(",")){
+            String[] kv = token.split("=");
+            if ("timerId".equals(kv[0].trim())){
+                return kv[1];
+            }
+        }
+        return null;
     }
 
     @SuppressWarnings({ "rawtypes", "unchecked" })

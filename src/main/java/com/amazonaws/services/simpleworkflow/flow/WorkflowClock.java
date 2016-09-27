@@ -40,7 +40,7 @@ public interface WorkflowClock {
     /**
      * Create a Value that becomes ready after the specified delay.
      * 
-     * @param delay
+     * @param delaySeconds
      *            time-interval after which the Value becomes ready in seconds.
      * @return Promise that becomes ready after the specified delay.
      */
@@ -56,5 +56,14 @@ public interface WorkflowClock {
      *         it contains value passed as context parameter.
      */
     public abstract <T> Promise<T> createTimer(long delaySeconds, final T context);
+
+    /**
+     * Create a Value that becomes ready after the specified delay.
+     *
+     * @param timer
+     *            promise returned by createTimer.
+     */
+    public abstract <T> void cancelTimer(Promise<T> timer);
+
 
 }

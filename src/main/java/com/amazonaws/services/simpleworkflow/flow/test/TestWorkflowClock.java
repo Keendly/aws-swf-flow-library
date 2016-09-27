@@ -14,8 +14,6 @@
  */
 package com.amazonaws.services.simpleworkflow.flow.test;
 
-import java.util.PriorityQueue;
-
 import com.amazonaws.services.simpleworkflow.flow.WorkflowClock;
 import com.amazonaws.services.simpleworkflow.flow.core.ExternalTask;
 import com.amazonaws.services.simpleworkflow.flow.core.ExternalTaskCancellationHandler;
@@ -23,6 +21,8 @@ import com.amazonaws.services.simpleworkflow.flow.core.ExternalTaskCompletionHan
 import com.amazonaws.services.simpleworkflow.flow.core.Promise;
 import com.amazonaws.services.simpleworkflow.flow.core.Settable;
 import com.amazonaws.services.simpleworkflow.flow.core.Task;
+
+import java.util.PriorityQueue;
 
 public class TestWorkflowClock implements WorkflowClock {
 
@@ -139,6 +139,16 @@ public class TestWorkflowClock implements WorkflowClock {
             }
         }.setName(timerName);
         return timer.getResult();
+    }
+
+    @Override
+    public <T> void cancelTimer(Promise<T> timer) {
+        for (TimerInfo timerInfo : timers){
+            if (timerInfo.getResult().equals(timer)){
+                timers.remove(timerInfo);
+                timerInfo.cancel();
+            }
+        }
     }
 
     public Long fireTimers() {
